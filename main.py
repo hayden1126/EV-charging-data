@@ -126,9 +126,58 @@ def main():
     
     # convert_XMLtoJSON(download_files())
     # print(remove_useless())
-    removed_List = remove_useless()
-    for station in removed_List:
-        print(process_parkingNo(station))
+    cleanedData = remove_useless()
+
+    x= open("EV_raw.json")
+    data = json.load(x)
+
+    newStationsList =[]
+    counter = 0
+
+    for station in data["ChargingStationData"]["stationList"]["station"]:
+
+        """
+        "vehicle" value should be Tesla, BYD or General
+        """
+        newStationData = {
+            "uuid": station["no"],
+            "address": {
+                "full": {
+                    "zh": "",
+                    "en": "Wan Chai Tower and Immigration Tower"
+                },
+                "streetName": station["address"],
+                "region": "Kowloon",
+                "district":  "Yau Tsim Mong",
+                "locationName": {
+                    "zh" : "灣仔政府大樓及入境事務大樓",
+                    "en": "Pioneer Centre Car Park"
+                },
+                "geocode":{
+                    "WGS84": {
+                        "lat": station["lat"],
+                        "lng": station["lng"],
+                    }
+                }
+            },
+            "provider": "Others",
+            "type": {
+                "charging": ["Standard", "SemiQuick"],
+                "vehicle": "Tesla", 
+            },
+            "publicPermit": "true",
+            "parkingSlot": process_parkingNo(station),
+            "updateCheckSum": "wegwegewg"
+        }
+
+
+        newStationsList.append(newStationData)
+        counter += 1
+
+        if counter % 20 == 0:
+            x = open("cleaned_EV_raw.json","w")
+            x.write(newStationsList)
+            x.close()
 
 
 

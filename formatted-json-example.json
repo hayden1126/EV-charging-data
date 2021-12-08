@@ -1,0 +1,30 @@
+{
+    "uuid": "259b5ae9",
+    "address": {
+        "full":{
+            "zh":" 灣仔港灣道12號灣仔政府大樓及入境事務大樓",
+            "en": "Wan Chai Tower and Immigration Tower"
+        },
+        "streetName": "750 Nathan Road, Mong Kok, Kowloon",
+        "region": "Kowloon",
+        "district":  "Yau Tsim Mong",
+        "locationName": {
+            "zh" : "灣仔政府大樓及入境事務大樓",
+            "en": "Pioneer Centre Car Park"
+        },
+        "geocode":{
+            "WGS84": {
+                "lat": "22.3226432800293",
+                "lng": "114.169326782227"
+            }
+        }
+    },
+    "provider": "Others",
+    "type": {
+        "charging": ["Standard", "SemiQuick"],
+        "vehicle": "Tesla", //BYD General
+    },
+    "publicPermit": true,
+    "parkingSlot": [],
+    "updateCheckSum": "wegwegewg"
+}
