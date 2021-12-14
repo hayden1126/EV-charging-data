@@ -4,9 +4,15 @@ import json
 import datetime
 import re
 
+global headers
 headers = {"Content-Type":"application/xml",
 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:50.0) Gecko/20100101 Firefox/50.0", 
 "Connection": "close"}
+
+global regex
+regex = ".*?([0-9]+)[\n]*" #only the number at the end
+
+
 
 def download_files():
     #download the file into memory
@@ -27,21 +33,6 @@ def convert_XMLtoJSON(res):
     x= open("EV_raw.json","w")
     x.write(json_data)
     x.close()
-
-def remove_useless():
-    x= open("EV_raw.json")
-    data = json.load(x)
-
-    # y = open("EV_data_c1.json")
-    station_List = []
-
-    for station in data["ChargingStationData"]["stationList"]["station"]:
-        if "img" in station:
-            del station["img"]
-        if "no" in station:
-            del station["no"]
-        station_List.append(station)
-    return station_List
 
 def process_parkingNo(station):
     # for station in station_List:
@@ -94,7 +85,8 @@ def process_parkingNo(station):
         # for item in parkingNo_dash_split:
         # item = item.strip()
         
-        regex = ".*?([0-9]+)[\n]*"
+        regexNumber = ".*?([0-9]+)[\n]*" #only the number at the end
+        regexPrefix = "(.*?)[0-9]+[\n]*"
         item0_number_only = re.findall(regex, item0)[-1]
         item1_number_only = re.findall(regex, item1)[-1]
         count = int(item1_number_only) - int(item0_number_only) + 1
@@ -119,14 +111,90 @@ number, number
 letternumber
 '''
 
+def clean_newline(address):
+    cleanedAddress = address.replace("\n", " ")
+    return cleanedAddress
 
+def process_string(address):
+    cleanedAddress = clean_newline(address)
+    cleanedAddress = remove_useless_whitespace(cleanedAddress)
+    return cleanedAddress
+
+def remove_useless_whitespace(address):
+    cleanedAddress = address.strip().lower()
+    return cleanedAddress
+
+def vehicle_supported_type(s):
+    if s == "Tesla only":
+        return "Tesla"
+    elif s == "BYD only":
+        return "BYD"
+    else:
+        return "General"
+
+def create_range_list(start, end):
+    range_list = []
+    for i in range(start, end + 1):
+        range_list.append(i)
+    return range_list
+
+def parking_slot_list(s):
+    regexNumber = ".*?([0-9]+)[\n]*" #only the number at the end
+    regexPrefix = "(.*?)[0-9]+[\n]*"
+    if s == "Tesla only" or s == "BYD only" or s == None or "permit" in s or s == "":
+        r = ["No information provided"]
+        return r 
+
+    else:
+        parking_slot_list = []
+        
+        data_comma_split = s.split(",")
+        
+        for element in data_comma_split:
+            element = process_string(element)
+
+            isRange = False
+            
+            if "-" in element:
+                isRange = True
+                
+            if not isRange:
+                parking_slot_list.append(element)
+            
+            if isRange:
+                
+                data_dash_split = element.split("-")
+
+                item0 = process_string(data_dash_split[0])
+                item1 = process_string(data_dash_split[1])
+
+                item0_number = re.findall(regexNumber, item0)[-1]
+                item0_prefix = item0[0:item0.find(item0_number)]
+
+                item1_number = re.findall(regexNumber, item1)[-1]
+                item1_prefix = item1[:item1.find(item1_number)]
+
+                # print(item0_prefix, item0_number)
+                # print(item1_prefix, item1_number)
+
+                rangeList = create_range_list(int(item0_number), int(item1_number))
+                # print(rangeList)
+
+                for parkingNumber in rangeList:
+                    parking_slot_list.append(item0_prefix + str(parkingNumber))
+
+        return parking_slot_list
+
+def check_public_permit(s):
+    if s == None:
+        return True
+    elif "permit" in s:
+        return False
+    else:
+        return True
 
 def main():
     startTime = datetime.datetime.now()
-    
-    # convert_XMLtoJSON(download_files())
-    # print(remove_useless())
-    cleanedData = remove_useless()
 
     x= open("EV_raw.json")
     data = json.load(x)
@@ -144,14 +212,14 @@ def main():
             "address": {
                 "full": {
                     "zh": "",
-                    "en": "Wan Chai Tower and Immigration Tower"
+                    "en": process_string(remove_useless_whitespace(station["address"]))
                 },
-                "streetName": station["address"],
-                "region": "Kowloon",
-                "district":  "Yau Tsim Mong",
+                "streetName": process_string(station["address"]),
+                "region": process_string(station["districtL"]),
+                "district": process_string(station["districtS"]),
                 "locationName": {
-                    "zh" : "灣仔政府大樓及入境事務大樓",
-                    "en": "Pioneer Centre Car Park"
+                    "zh" : "",
+                    "en": process_string(station["location"])
                 },
                 "geocode":{
                     "WGS84": {
@@ -160,14 +228,14 @@ def main():
                     }
                 }
             },
-            "provider": "Others",
+            "provider": process_string(station["provider"]),
             "type": {
-                "charging": ["Standard", "SemiQuick"],
-                "vehicle": "Tesla", 
+                "charging": process_string(station["type"]).split(";"), #standard / semiquick / quick
+                "vehicle": vehicle_supported_type(station["parkingNo"]), 
             },
-            "publicPermit": "true",
-            "parkingSlot": process_parkingNo(station),
-            "updateCheckSum": "wegwegewg"
+            "publicPermit": check_public_permit(station["parkingNo"]),
+            "parkingSlot": parking_slot_list(station["parkingNo"]),
+            "updateCheckSum": ""
         }
 
 
@@ -176,7 +244,7 @@ def main():
 
         if counter % 20 == 0:
             x = open("cleaned_EV_raw.json","w")
-            x.write(newStationsList)
+            x.write(json.dumps(newStationsList, indent=4))
             x.close()
 
 
